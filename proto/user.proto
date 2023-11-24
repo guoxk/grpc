@@ -1,0 +1,18 @@
+syntax = "proto3";
+import "google/api/annotations.proto";
+option go_package = "grpc_gin/pb";
+service User {
+  rpc QueryUser(QueryUserRequest) returns (QueryUserResponse) {
+    option (google.api.http) = {
+      post: "/QueryUser"
+      body: "*"
+    };
+  }
+}
+message QueryUserRequest {
+  int32 user_id = 1;
+}
+message QueryUserResponse {
+  int32 user_id = 1;
+  string user_name = 2;
+}
