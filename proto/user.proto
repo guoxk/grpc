@@ -4,8 +4,7 @@ option go_package = "grpc_gin/pb";
 service User {
   rpc QueryUser(QueryUserRequest) returns (QueryUserResponse) {
     option (google.api.http) = {
-      post: "/QueryUser"
-      body: "*"
+      get: "/QueryUser"
     };
   }
 }
