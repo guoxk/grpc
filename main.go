@@ -7,21 +7,28 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/hashicorp/consul/api"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/protobuf/encoding/protojson"
 	"log"
 	"main/model"
 	"main/pb"
 	"main/services"
 	"net"
-	"net/http"
 	"time"
 )
 
 func main() {
+	jsons := `{"user_id":99}`
+	res1 := pb.QueryUserRequest{}
+	err1 := json.Unmarshal([]byte(jsons), &res1)
+	fmt.Println(err1, res1)
+	return
 	go func() {
 		srv := grpc.NewServer() //初始化一个grpc服务
 		//RegisterRpcGetUserInfoServer这个方法是自动生成的，格式Register{服务名}Server
@@ -38,28 +45,61 @@ func main() {
 			return
 		}
 	}()
+	// grpc-gateway
+	//go func() {
+	//	// 等待grpc服务启动
+	//	time.Sleep(2 * time.Second)
+	//	ctx := context.Background()
+	//	gwMux := runtime.NewServeMux()
+	//	// 接口超时时间
+	//	runtime.DefaultContextTimeout = 5 * time.Second
+	//	// 将gateway注册到grpc客户端
+	//	err := pb.RegisterUserHandlerFromEndpoint(ctx, gwMux, fmt.Sprintf(":%d", model.PORT), []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.UseCompressor("gzip"))})
+	//	if err != nil {
+	//		log.Printf("RegisterUserHandlerFromEndpoint err: %v", err)
+	//		return
+	//	}
+	//	// 注册http服务到gateway
+	//	server := http.Server{
+	//		Addr:    fmt.Sprintf(":%d", model.HTTP_PORT),
+	//		Handler: gwMux,
+	//	}
+	//	log.Printf("serving gateway on %s\n", server.Addr)
+	//	if err = server.ListenAndServe(); err != nil {
+	//		log.Printf("RegisterUserHandlerFromEndpoint err: %v", err)
+	//		return
+	//	}
+	//}()
 
+	// gin版
 	go func() {
 		// 等待grpc服务启动
 		time.Sleep(2 * time.Second)
-		ctx := context.Background()
-		gwMux := runtime.NewServeMux()
+		gwMux := runtime.NewServeMux(runtime.WithMarshalerOption(
+			runtime.MIMEWildcard, &runtime.JSONPb{
+				MarshalOptions: protojson.MarshalOptions{
+					UseProtoNames:   true,
+					UseEnumNumbers:  true,
+					EmitUnpopulated: true, // 是否填充默认值
+				},
+			},
+		))
 		// 接口超时时间
 		runtime.DefaultContextTimeout = 5 * time.Second
 		// 将gateway注册到grpc客户端
-		err := pb.RegisterUserHandlerFromEndpoint(ctx, gwMux, fmt.Sprintf(":%d", model.PORT), []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.UseCompressor("gzip"))})
+		err := pb.RegisterUserHandlerFromEndpoint(context.Background(), gwMux, fmt.Sprintf(":%d", model.PORT), []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.UseCompressor("gzip"))})
 		if err != nil {
 			log.Printf("RegisterUserHandlerFromEndpoint err: %v", err)
 			return
 		}
-		// 注册http服务到gateway
-		server := http.Server{
-			Addr:    fmt.Sprintf(":%d", model.HTTP_PORT),
-			Handler: gwMux,
-		}
-		log.Printf("serving gateway on %s\n", server.Addr)
-		if err = server.ListenAndServe(); err != nil {
-			log.Printf("RegisterUserHandlerFromEndpoint err: %v", err)
+
+		r := gin.New()
+		//r.GET("/hello", func(c *gin.Context) {
+		//	c.String(http.StatusOK, "hello")
+		//})
+		r.Any("/*method", gin.WrapH(gwMux))
+		if err := r.Run(fmt.Sprintf(":%d", model.HTTP_PORT)); err != nil {
+			log.Printf("failed to http serve: %v", err)
 			return
 		}
 	}()

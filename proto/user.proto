@@ -7,6 +7,13 @@ service User {
       get: "/QueryUser"
     };
   }
+  rpc UpdateUser(QueryUserRequest) returns (QueryUserResponse) {
+    option (google.api.http) = {
+      post: "/a/UpdateUser",
+      body:"*"
+    };
+  }
+
 }
 message QueryUserRequest {
   int32 user_id = 1;

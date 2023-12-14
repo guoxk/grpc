@@ -24,3 +24,13 @@ func (receiver *UserService) QueryUser(ctx context.Context, data *pb.QueryUserRe
 		UserName: "gxk",
 	}, nil
 }
+
+func (receiver *UserService) UpdateUser(ctx context.Context, data *pb.QueryUserRequest) (*pb.QueryUserResponse, error) {
+	if data.GetUserId() == 0 {
+		return nil, errors.New("user_id不能为0")
+	}
+	return &pb.QueryUserResponse{
+		UserId:   data.GetUserId(),
+		UserName: "update gxk",
+	}, nil
+}
